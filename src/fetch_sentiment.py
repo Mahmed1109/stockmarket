@@ -1,33 +1,49 @@
-from newsapi import NewsApiClient
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from datetime import timedelta
+import os
 import pandas as pd
 import numpy as np
-import os
+from datetime import timedelta
+from dotenv import load_dotenv
+from newsapi import NewsApiClient
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-newsapi = NewsApiClient(api_key='YOUR_NEWSAPI_KEY_HERE')  # <- Replace this
-analyser = SentimentIntensityAnalyzer()
+load_dotenv()
+api_key = os.getenv("NewsAPI_KEY")
 
-def get_sentiment_score(date, ticker):
-    date_str = date.strftime('%Y-%m-%d')
-    next_day = (date + timedelta(days=1)).strftime('%Y-%m-%d')
+if not api_key:
+    raise ValueError("Missing NewsAPI_KEY in .env file or environment")
+
+newsapi = NewsApiClient(api_key=api_key)
+analyzer = SentimentIntensityAnalyzer()
+
+def fetch_headlines(ticker, date):
+    query = f"{ticker} stock"
+    from_date = date.strftime("%Y-%m-%d")
+    to_date = (date + timedelta(days=1)).strftime("%Y-%m-%d")
     try:
         articles = newsapi.get_everything(
-            q=ticker,
-            from_param=date_str,
-            to=next_day,
+            q=query,
+            from_param=from_date,
+            to=to_date,
             language='en',
             sort_by='relevancy',
-            page_size=20
+            page_size=50
         )
-        scores = [analyser.polarity_scores(a['title'])['compound'] for a in articles['articles']]
-        return np.mean(scores) if scores else 0
-    except:
+        return [article['title'] for article in articles['articles']]
+    except Exception as e:
+        print(f"Error fetching headlines for {date}: {e}")
+        return []
+
+def compute_daily_sentiment(headlines):
+    if not headlines:
         return 0
+    scores = [analyzer.polarity_scores(headline)['compound'] for headline in headlines]
+    return np.mean(scores)
 
 def attach_sentiment(df, ticker):
-    print("Fetching sentiment scores...")
-    df['Sentiment'] = df.index.to_series().apply(lambda d: get_sentiment_score(d, ticker))
-    os.makedirs("data/processed", exist_ok=True)
-    df.to_csv(f"data/processed/{ticker}_with_sentiment.csv")
+    sentiment_scores = []
+    for date in df.index:
+        headlines = fetch_headlines(ticker, date)
+        sentiment = compute_daily_sentiment(headlines)
+        sentiment_scores.append(sentiment)
+    df['sentiment'] = sentiment_scores
     return df
