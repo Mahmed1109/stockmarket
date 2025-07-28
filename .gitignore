@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Environment files
+.env
+.env.*
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+
+# Models & Data
+models/
+data/
+
+# OS files
+.DS_Store
+Thumbs.db
