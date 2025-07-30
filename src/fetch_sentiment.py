@@ -16,3 +16,21 @@ if not api_key:
 newsapi = NewsApiClient(api_key=api_key)
 analyzer = SentimentIntensityAnalyzer()
 CACHE_FILE = "sentiment_cache.csv"
+
+def fetch_headlines(ticker, date):
+    query = f"{ticker} stock"
+    from_date = date.strftime("%Y-%m-%d")
+    to_date = (date + timedelta(days=1)).strftime("%Y-%m-%d")
+    try:
+        articles = newsapi.get_everything(
+            q=query,
+            from_param=from_date,
+            to=to_date,
+            language='en',
+            sort_by='relevancy',
+            page_size=50
+        )
+        return [article['title'] for article in articles['articles']]
+    except Exception as e:
+        print(f"Error fetching headlines for {date}: {e}")
+        return []
