@@ -14,7 +14,7 @@ if not api_key:
     raise ValueError("Missing NewsAPI_KEY in .env file or environment")
 
 newsapi = NewsApiClient(api_key=api_key)
-analyzer = SentimentIntensityAnalyzer()
+analyser = SentimentIntensityAnalyzer()
 CACHE_FILE = "sentiment_cache.csv"
 
 def fetch_headlines(ticker, date):
@@ -34,3 +34,9 @@ def fetch_headlines(ticker, date):
     except Exception as e:
         print(f"Error fetching headlines for {date}: {e}")
         return []
+    
+def compute_daily_sentiment(headlines):
+    if not headlines:
+        return 0
+    scores = [analyser.polarity_scores(h)['compound'] for h in headlines]
+    return np.mean(scores)
