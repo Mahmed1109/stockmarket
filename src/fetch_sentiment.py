@@ -40,3 +40,8 @@ def compute_daily_sentiment(headlines):
         return 0
     scores = [analyser.polarity_scores(h)['compound'] for h in headlines]
     return np.mean(scores)
+
+def load_cache():
+    if os.path.exists(CACHE_FILE):
+        return pd.read_csv(CACHE_FILE, parse_dates=["date"])
+    return pd.DataFrame(columns=["date", "ticker", "sentiment"])
