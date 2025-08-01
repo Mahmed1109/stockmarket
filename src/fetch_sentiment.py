@@ -45,3 +45,30 @@ def load_cache():
     if os.path.exists(CACHE_FILE):
         return pd.read_csv(CACHE_FILE, parse_dates=["date"])
     return pd.DataFrame(columns=["date", "ticker", "sentiment"])
+
+def attach_sentiment(df, ticker):
+    cache = load_cache()
+    sentiment_scores = []
+
+    df = df.sort_index()
+    recent_df = df.last("7D")
+
+    for date in recent_df.index:
+        cached = cache[(cache["date"] == date) & (cache["ticker"] == ticker)]
+
+        if not cached.empty:
+            sentiment = cached.iloc[0]["sentiment"]
+        else:
+            headlines = fetch_headlines(ticker, date)
+            sentiment = compute_daily_sentiment(headlines)
+            new_row = pd.DataFrame({"date": [date], "ticker": [ticker], "sentiment": [sentiment]})
+            cache = pd.concat([cache, new_row], ignore_index=True)
+            time.sleep(1.1)
+
+        sentiment_scores.append((date, sentiment))
+
+    save_cache(cache)
+
+    sentiment_df = pd.DataFrame(sentiment_scores, columns=["date", "Sentiment"]).set_index("date")
+    df = df.join(sentiment_df, how="left")
+    return df
