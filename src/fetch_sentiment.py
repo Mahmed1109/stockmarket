@@ -46,6 +46,9 @@ def load_cache():
         return pd.read_csv(CACHE_FILE, parse_dates=["date"])
     return pd.DataFrame(columns=["date", "ticker", "sentiment"])
 
+def save_cache(cache):
+    cache.to_csv(CACHE_FILE, index=False)
+
 def attach_sentiment(df, ticker):
     cache = load_cache()
     sentiment_scores = []
