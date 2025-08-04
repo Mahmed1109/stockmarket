@@ -1,5 +1,4 @@
 import os
-import time
 import pandas as pd
 import numpy as np
 from datetime import timedelta
@@ -14,8 +13,7 @@ if not api_key:
     raise ValueError("Missing NewsAPI_KEY in .env file or environment")
 
 newsapi = NewsApiClient(api_key=api_key)
-analyser = SentimentIntensityAnalyzer()
-CACHE_FILE = "sentiment_cache.csv"
+analyzer = SentimentIntensityAnalyzer()
 
 def fetch_headlines(ticker, date):
     query = f"{ticker} stock"
@@ -34,44 +32,40 @@ def fetch_headlines(ticker, date):
     except Exception as e:
         print(f"Error fetching headlines for {date}: {e}")
         return []
-    
+
 def compute_daily_sentiment(headlines):
     if not headlines:
         return 0
-    scores = [analyser.polarity_scores(h)['compound'] for h in headlines]
+    scores = [analyzer.polarity_scores(headline)['compound'] for headline in headlines]
     return np.mean(scores)
 
-def load_cache():
-    if os.path.exists(CACHE_FILE):
-        return pd.read_csv(CACHE_FILE, parse_dates=["date"])
-    return pd.DataFrame(columns=["date", "ticker", "sentiment"])
-
-def save_cache(cache):
-    cache.to_csv(CACHE_FILE, index=False)
-
 def attach_sentiment(df, ticker):
-    cache = load_cache()
-    sentiment_scores = []
-
     df = df.sort_index()
-    recent_df = df.last("7D")
+    df = df[df.index >= (df.index.max() - pd.Timedelta(days=7))]  # Last 7 days only
 
-    for date in recent_df.index:
-        cached = cache[(cache["date"] == date) & (cache["ticker"] == ticker)]
+    sentiment_scores = []
+    dates = []
 
-        if not cached.empty:
-            sentiment = cached.iloc[0]["sentiment"]
+    cache = pd.DataFrame(columns=["Date", "Sentiment"])
+
+    for date in df.index:
+        if (cache["Date"] == date).any():
+            sentiment = cache.loc[cache["Date"] == date, "Sentiment"].values[0]
         else:
             headlines = fetch_headlines(ticker, date)
             sentiment = compute_daily_sentiment(headlines)
-            new_row = pd.DataFrame({"date": [date], "ticker": [ticker], "sentiment": [sentiment]})
+            new_row = pd.DataFrame([{"Date": date, "Sentiment": sentiment}])
             cache = pd.concat([cache, new_row], ignore_index=True)
-            time.sleep(1.1)
 
-        sentiment_scores.append((date, sentiment))
+        sentiment_scores.append(sentiment)
+        dates.append(date)
 
-    save_cache(cache)
+    sentiment_df = pd.DataFrame({"Date": dates, "Sentiment": sentiment_scores})
 
-    sentiment_df = pd.DataFrame(sentiment_scores, columns=["date", "Sentiment"]).set_index("date")
-    df = df.join(sentiment_df, how="left")
+    df = df.reset_index()
+    sentiment_df = sentiment_df.reset_index(drop=True)
+
+    df = pd.merge(df, sentiment_df, on="Date", how="left")
+    df = df.set_index("Date")
+
     return df
