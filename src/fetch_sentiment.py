@@ -62,18 +62,20 @@ def attach_sentiment(df, ticker):
 
     for _, row in df.iterrows():
         date = row["date"]
-        cached = cache[(cache["date"] == date) & (cache["ticker"] == ticker)]
+        date_only = pd.to_datetime(date).date()
+        cache["date"] = pd.to_datetime(cache["date"]).dt.date
+        cached = cache[(cache["date"] == date_only) & (cache["ticker"] == ticker)]
 
         if not cached.empty:
             sentiment = cached.iloc[0]["sentiment"]
         else:
             headlines = fetch_headlines(ticker, date)
             sentiment = compute_daily_sentiment(headlines)
-            new_row = pd.DataFrame({"date": [date], "ticker": [ticker], "sentiment": [sentiment]})
+            new_row = pd.DataFrame({"date": [date_only], "ticker": [ticker], "sentiment": [sentiment]})
             cache = pd.concat([cache, new_row], ignore_index=True)
             time.sleep(1.1)
 
-        sentiment_scores.append({"date": date, "sentiment": sentiment})
+        sentiment_scores.append({"date": date_only, "sentiment": sentiment})
 
     save_cache(cache)
 
